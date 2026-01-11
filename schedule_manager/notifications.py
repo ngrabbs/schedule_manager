@@ -3,8 +3,11 @@ ntfy.sh notification integration
 """
 
 import requests
+import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 
 class NtfyNotifier:
@@ -98,13 +101,19 @@ class NtfyNotifier:
         
         try:
             # Send UTF-8 encoded message body
+            logger.debug(f"Sending notification to {url}")
+            logger.debug(f"Headers: {headers}")
+            logger.debug(f"Message: {message[:100]}...")
+            
             response = requests.post(url, data=message.encode('utf-8'), headers=headers)
             response.raise_for_status()
             
             # ntfy returns the message ID in the response
             result = response.json()
+            logger.info(f"Notification sent successfully, message ID: {result.get('id')}")
             return result.get('id')
         except Exception as e:
+            logger.error(f"Error sending notification: {e}", exc_info=True)
             print(f"Error sending notification: {e}")
             return None
     
@@ -141,7 +150,7 @@ class NtfyNotifier:
             actions = [
                 {
                     "action": "http",
-                    "label": "✓ Done",
+                    "label": "Done",
                     "url": f"http://localhost:8080/api/tasks/{task_id}/complete",
                     "method": "POST"
                 },
@@ -249,4 +258,51 @@ class NtfyNotifier:
             message="Your AI schedule manager is up and running! You'll receive notifications here.",
             priority='low',
             tags=["white_check_mark", "rocket"]
+        )
+    
+    def send_command_response(
+        self,
+        message: str,
+        success: bool = True,
+        priority: str = 'low'
+    ) -> Optional[str]:
+        """
+        Send a response to a voice command
+        
+        Args:
+            message: Response message
+            success: Whether command was successful
+            priority: Priority level
+        
+        Returns:
+            Message ID from ntfy.sh, or None if failed
+        """
+        # Use appropriate emoji based on success
+        if success:
+            tags = ["white_check_mark", "speech_balloon"]
+        else:
+            tags = ["x", "warning"]
+        
+        return self.send_notification(
+            title="Command Response",
+            message=message,
+            priority=priority,
+            tags=tags
+        )
+    
+    def send_error_response(self, error_message: str) -> Optional[str]:
+        """
+        Send an error response for a failed command
+        
+        Args:
+            error_message: Error description
+        
+        Returns:
+            Message ID from ntfy.sh, or None if failed
+        """
+        return self.send_notification(
+            title="Command Error",
+            message=f"❌ {error_message}",
+            priority='low',
+            tags=["x", "warning"]
         )

@@ -4,6 +4,8 @@ An AI-powered schedule manager with ntfy.sh notifications, designed to work seam
 
 ## Features
 
+- **Voice Commands via Apple Watch**: Control your schedule with Siri! "Hey Siri, add schedule"
+- **Bidirectional ntfy.sh Integration**: Send commands TO your schedule manager, not just receive notifications
 - **Natural Language Interface**: Add tasks by saying "Team meeting tomorrow at 10am for 1 hour"
 - **Smart Notifications**: Get reminders via ntfy.sh on your phone, watch, and desktop
 - **Daily Summaries**: Morning briefing of your day ahead
@@ -79,6 +81,58 @@ Add to your OpenCode MCP configuration (`~/.config/opencode/mcp.json` or similar
 ```
 
 Now you can manage your schedule through OpenCode!
+
+## Voice Commands via Apple Watch / Siri
+
+**NEW!** Control your schedule with your voice from anywhere!
+
+### Quick Start
+
+1. **The daemon listens to commands** via ntfy.sh topic: `nick_cmd_a1ask10h`
+2. **Set up iOS Shortcuts** to send commands via Siri
+3. **Use your Apple Watch** to add tasks, check schedule, complete tasks, and more!
+
+### Example Voice Interactions
+
+```
+You: "Hey Siri, add schedule"
+Siri: "What should I schedule?"
+You: "Call mom tomorrow at 3pm"
+[Notification]: "✅ Added: Call mom 📅 Mon Jan 12 at 03:00 PM"
+
+You: "Hey Siri, my schedule"
+[Notification]: Shows today's full schedule
+
+You: "Hey Siri, what's coming up"
+[Notification]: Shows tasks in next 4 hours
+```
+
+### Available Voice Commands
+
+- **Add tasks**: `add: call mom tomorrow at 3pm`
+- **View schedule**: `list` or `today`
+- **Upcoming tasks**: `upcoming` or `upcoming 4`
+- **Complete task**: `complete: 15`
+- **Delete task**: `delete: 15`
+- **Reschedule**: `reschedule: 15 to 5pm`
+- **Help**: `help`
+
+### Setup Guide
+
+See **[IOS_SHORTCUTS_GUIDE.md](IOS_SHORTCUTS_GUIDE.md)** for complete step-by-step instructions on setting up Siri shortcuts on your iPhone and Apple Watch.
+
+See **[COMMANDS.md](COMMANDS.md)** for complete command reference and examples.
+
+### Test Voice Commands
+
+```bash
+# Test command processing
+python3 test_command_listener.py "help"
+python3 test_command_listener.py "add: test task tomorrow at 3pm"
+python3 test_command_listener.py "list"
+```
+
+---
 
 ## Usage Examples
 
@@ -170,7 +224,9 @@ When using OpenCode, these tools are available:
 ```yaml
 ntfy:
   server: "https://ntfy.sh"
-  topic: "your_unique_topic"
+  topic: "your_unique_topic"  # Outbound notifications
+  commands_topic: "your_commands_topic"  # Inbound voice commands (KEEP SECRET!)
+  commands_enabled: true  # Enable/disable voice command processing
   priority:
     high: "urgent"    # ntfy.sh priority for high-priority tasks
     medium: "high"    # ntfy.sh priority for medium-priority tasks
@@ -405,13 +461,15 @@ This is your personal schedule manager! Feel free to modify it:
 
 ## Why This Instead of Sorted³?
 
-1. **True AI integration** - Your AI can directly manage your schedule
-2. **Better notifications** - ntfy.sh works everywhere, customizable
-3. **No sync lag** - Everything's local
-4. **Programmable** - Build any workflow you want
-5. **Conversational** - Natural language, no UI clicking
-6. **Your data** - SQLite file you own and control
-7. **Extensible** - Add any feature easily
+1. **Voice control from Apple Watch** - "Hey Siri, add schedule" from your wrist!
+2. **True AI integration** - Your AI can directly manage your schedule
+3. **Better notifications** - ntfy.sh works everywhere, customizable
+4. **Bidirectional** - Send commands AND receive notifications
+5. **No sync lag** - Everything's local
+6. **Programmable** - Build any workflow you want
+7. **Conversational** - Natural language, no UI clicking
+8. **Your data** - SQLite file you own and control
+9. **Extensible** - Add any feature easily
 
 ## License
 
