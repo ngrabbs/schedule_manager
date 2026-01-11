@@ -50,12 +50,34 @@ class NtfyNotifier:
         Returns:
             Message ID from ntfy.sh, or None if failed
         """
+        # POST to topic endpoint with UTF-8 message body and headers
         url = f"{self.server}/{self.topic}"
         
+        # Build headers
         headers = {
-            "Title": title,
             "Priority": self.priority_map.get(priority, 'default'),
         }
+        
+        # Handle title with emojis
+        # HTTP headers only support latin-1, so we need to handle UTF-8 specially
+        if title:
+            # Check if title contains non-latin-1 characters (like emojis)
+            try:
+                title.encode('latin-1')
+                # If this succeeds, title is latin-1 safe
+                headers["Title"] = title
+            except UnicodeEncodeError:
+                # Title contains emojis or other UTF-8 chars
+                # Move emojis to message and keep ASCII in title
+                title_clean = ''.join(c for c in title if ord(c) < 128).strip()
+                if title_clean:
+                    headers["Title"] = title_clean
+                    # Prepend the full title (with emojis) to the message
+                    message = f"{title}\n\n{message}" if message else title
+                else:
+                    # Title is only emojis, put it all in the message
+                    headers["Title"] = "Notification"
+                    message = f"{title}\n\n{message}" if message else title
         
         if tags:
             headers["Tags"] = ",".join(tags)
@@ -75,6 +97,7 @@ class NtfyNotifier:
             headers["Actions"] = "; ".join(action_strs)
         
         try:
+            # Send UTF-8 encoded message body
             response = requests.post(url, data=message.encode('utf-8'), headers=headers)
             response.raise_for_status()
             
