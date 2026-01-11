@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "schedule-manager": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "schedule_manager.mcp_server"
+      ],
+      "cwd": "/home/YOUR_USERNAME/schedule-manager",
+      "env": {}
+    }
+  }
+}

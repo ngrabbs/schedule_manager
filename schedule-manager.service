@@ -1,0 +1,22 @@
+[Unit]
+Description=AI Schedule Manager Notification Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/home/%i/schedule-manager
+ExecStart=/usr/bin/python3 -m schedule_manager.daemon --config /home/%i/schedule-manager/config.yaml
+Restart=on-failure
+RestartSec=10s
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=schedule-manager
+
+[Install]
+WantedBy=multi-user.target
