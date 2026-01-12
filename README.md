@@ -4,6 +4,11 @@ An AI-powered schedule manager with ntfy.sh notifications, designed to work seam
 
 ## Features
 
+- **🧠 AI Agent Mode (NEW!)**: Intelligent command processing with conversation context
+  - Understands natural variations ("call mom" vs "remind me to call mom")
+  - Maintains conversation context ("actually make it 5pm" - remembers previous task)
+  - Resolves ambiguity (infers 3pm vs 3am based on context)
+  - Supports multiple models: Claude, Ollama, OpenAI
 - **Voice Commands via Apple Watch**: Control your schedule with Siri! "Hey Siri, add schedule"
 - **Bidirectional ntfy.sh Integration**: Send commands TO your schedule manager, not just receive notifications
 - **Natural Language Interface**: Add tasks by saying "Team meeting tomorrow at 10am for 1 hour"
@@ -14,6 +19,7 @@ An AI-powered schedule manager with ntfy.sh notifications, designed to work seam
 - **OpenCode Integration**: MCP server for seamless AI agent control
 - **Priority-Based**: High/medium/low priority tasks with different notification urgency
 - **Zero Sync Lag**: Everything runs on your local server
+- **Automatic Fallback**: If AI agent unavailable, falls back to simple processing
 
 ## Quick Start
 
@@ -84,7 +90,7 @@ Now you can manage your schedule through OpenCode!
 
 ## Voice Commands via Apple Watch / Siri
 
-**NEW!** Control your schedule with your voice from anywhere!
+**ENHANCED WITH AI!** Control your schedule with your voice from anywhere - now with intelligent understanding and conversation context!
 
 ### Quick Start
 
@@ -116,6 +122,29 @@ You: "Hey Siri, what's coming up"
 - **Delete task**: `delete: 15`
 - **Reschedule**: `reschedule: 15 to 5pm`
 - **Help**: `help`
+
+### 🧠 AI Agent Mode (Optional)
+
+Upgrade your schedule manager with intelligent command processing!
+
+**Enable in `config.yaml`**:
+```yaml
+agent:
+  enabled: true
+  model: "ollama/llama3.2"  # or "claude", "openai/gpt-4"
+```
+
+**What you get**:
+- 🎯 Context awareness: "actually make it 5pm" works
+- 🧩 Ambiguity resolution: Infers 3pm vs 3am
+- 💬 Natural variations: "call mom" = "remind me to call mom"
+- 🔄 Conversation memory: Remembers previous commands
+
+**Models supported**:
+- **Local**: Ollama (llama3.2, mistral, phi3) - Free!
+- **Cloud**: Claude, OpenAI GPT-4 - Better quality
+
+See **[AGENT_MODE.md](AGENT_MODE.md)** for complete AI agent setup and configuration.
 
 ### Setup Guide
 

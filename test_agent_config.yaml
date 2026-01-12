@@ -1,0 +1,31 @@
+ntfy:
+  server: "https://ntfy.sh"
+  topic: "nick_testing_12345"
+  commands_topic: "nick_cmd_a1ask10h"
+  commands_enabled: true
+  priority:
+    high: "urgent"
+    medium: "high"
+    low: "default"
+
+notifications:
+  daily_summary_time: "07:00"
+  reminder_minutes_before: [15, 5, 0]
+  upcoming_summary_interval_minutes: 120
+  upcoming_summary_work_hours: ["09:00", "17:00"]
+  
+schedule:
+  timezone: "America/Chicago"
+  work_hours_start: "08:00"
+  work_hours_end: "17:00"
+  
+database:
+  path: "data/schedule.db"
+
+agent:
+  enabled: true
+  port: 5555
+  model: "ollama/llama3.2"
+  agent_name: "schedule"
+  startup_timeout_seconds: 5
+  health_check_timeout_seconds: 2
