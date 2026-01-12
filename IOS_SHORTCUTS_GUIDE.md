@@ -44,12 +44,16 @@ This shortcut lets you add tasks with your voice.
 6. **Configure Get Contents of URL**:
    - **URL**: `https://ntfy.sh/nick_cmd_a1ask10h`
    - **Method**: `POST`
-   - **Request Body**: Select "Text" from the dropdown
-   - **Body Content**: Tap and select "Ask for Input" from the variables menu, then type `add: ` before it
+   - **Request Body**: Select **"Form"** from the dropdown (or "File" if Form isn't available)
+   - **Body Content**: 
+     - If using **Form**: Switch to "Text" mode by tapping the toggle, then add: `add: [Provided Input]`
+     - If using **File**: Tap and select "Ask for Input" from the variables menu, then type `add: ` before it
      - Final text should be: `add: [Provided Input]`
    - **Headers**: Tap "Add new field" → "Add Header"
      - Key: `Title`, Value: `Schedule Command`
      - Key: `Priority`, Value: `default`
+   
+   **Note:** Different iOS versions have slightly different options. The goal is to send the text "add: [your input]" as the POST body.
 
 7. **Name the Shortcut**: Tap the shortcut name at the top and rename to "Add Schedule"
 
@@ -77,8 +81,8 @@ This shortcut shows your tasks for today.
 3. **Configure**:
    - **URL**: `https://ntfy.sh/nick_cmd_a1ask10h`
    - **Method**: `POST`
-   - **Request Body**: Text
-   - **Body**: `list`
+   - **Request Body**: **Form** (or File if Form isn't available)
+   - **Body**: Type `list` (switch to text mode if needed)
    - **Headers**:
      - `Title`: `Schedule Command`
      - `Priority`: `default`
@@ -99,8 +103,8 @@ Shows upcoming tasks in the next 4 hours.
 3. **Configure**:
    - **URL**: `https://ntfy.sh/nick_cmd_a1ask10h`
    - **Method**: `POST`
-   - **Request Body**: Text
-   - **Body**: `upcoming`
+   - **Request Body**: **Form** (switch to text mode)
+   - **Body**: Type `upcoming`
    - **Headers**: Same as above
 
 4. **Name**: "What's Coming Up"
@@ -122,8 +126,8 @@ Mark a task as done by its ID number.
 4. **Configure**:
    - **URL**: `https://ntfy.sh/nick_cmd_a1ask10h`
    - **Method**: `POST`
-   - **Request Body**: Text
-   - **Body**: `complete: [Provided Input]`
+   - **Request Body**: **Form** (switch to text mode)
+   - **Body**: Type `complete: ` then add the [Provided Input] variable
    - **Headers**: Same as above
 
 5. **Name**: "Complete Task"

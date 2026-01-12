@@ -5,6 +5,7 @@ MCP Server for Schedule Manager - Allows OpenCode to manage your schedule
 
 import json
 import sys
+import logging
 from datetime import datetime
 from typing import Any, Sequence
 from mcp.server import Server
@@ -14,6 +15,7 @@ import asyncio
 
 from .core import ScheduleManager
 
+logger = logging.getLogger(__name__)
 
 # Initialize the schedule manager
 manager = ScheduleManager()
@@ -222,20 +224,27 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent | ImageCo
     """Handle tool calls"""
     
     try:
+        logger.info(f"MCP: Tool called: {name}")
+        logger.debug(f"MCP: Arguments: {arguments}")
+        
         if name == "schedule_add":
+            logger.info(f"MCP: Adding task: {arguments['description']}")
             result = manager.add_task_natural(
                 description=arguments["description"],
                 priority=arguments.get("priority", "medium"),
                 tags=arguments.get("tags")
             )
+            logger.info(f"MCP: Task added successfully: ID {result.get('task', {}).get('id')}")
             return [TextContent(type="text", text=json.dumps(result, indent=2, default=str))]
         
         elif name == "schedule_add_recurring":
             # Parse recurring pattern and add task
+            logger.info(f"MCP: Adding recurring task: {arguments['description']}")
             result = manager.add_task_natural(
                 description=arguments["description"],
                 priority=arguments.get("priority", "medium")
             )
+            logger.info(f"MCP: Recurring task added: ID {result.get('task', {}).get('id')}")
             return [TextContent(type="text", text=json.dumps(result, indent=2, default=str))]
         
         elif name == "schedule_view":
@@ -244,10 +253,18 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent | ImageCo
             status = arguments.get("status", "pending")
             days_ahead = arguments.get("days_ahead", 0)
             
-            if status == "all":
-                status = None
+            logger.info(f"MCP: Viewing tasks for {date_str} (status={status}, days_ahead={days_ahead})")
             
-            tasks = manager.get_tasks(date=date, status=status, days_ahead=days_ahead)
+            # Get all tasks if status is "all"
+            if status == "all":
+                # Get tasks with all statuses by querying database directly
+                start_time = (date or datetime.now(manager.parser.timezone)).replace(hour=0, minute=0, second=0, microsecond=0)
+                end_time = start_time + __import__('datetime').timedelta(days=days_ahead + 1)
+                tasks = manager.db.get_tasks(start_time=start_time, end_time=end_time)
+            else:
+                tasks = manager.get_tasks(date=date, status=status, days_ahead=days_ahead)
+            
+            logger.debug(f"MCP: Found {len(tasks)} task(s)")
             
             # Format tasks for display
             if not tasks:
@@ -285,6 +302,7 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent | ImageCo
             task_id = arguments["task_id"]
             update_fields = {k: v for k, v in arguments.items() if k != "task_id"}
             
+            logger.info(f"MCP: Updating task {task_id}: {update_fields}")
             result = manager.update_task(task_id, **update_fields)
             return [TextContent(type="text", text=json.dumps(result, indent=2, default=str))]
         
@@ -292,17 +310,22 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent | ImageCo
             task_id = arguments["task_id"]
             new_time = arguments["new_time"]
             
+            logger.info(f"MCP: Rescheduling task {task_id} to {new_time}")
             result = manager.reschedule_task(task_id, new_time)
+            logger.info(f"MCP: Task {task_id} rescheduled successfully")
             return [TextContent(type="text", text=json.dumps(result, indent=2, default=str))]
         
         elif name == "schedule_complete":
             task_id = arguments["task_id"]
+            logger.info(f"MCP: Completing task {task_id}")
             result = manager.complete_task(task_id)
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
         
         elif name == "schedule_delete":
             task_id = arguments["task_id"]
+            logger.info(f"MCP: Deleting task {task_id}")
             result = manager.delete_task(task_id)
+            logger.info(f"MCP: Task {task_id} deleted")
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
         
         elif name == "schedule_test_notification":

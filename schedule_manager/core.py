@@ -207,12 +207,21 @@ class ScheduleManager:
                 'message': f"Could not parse time from: {new_time_description}"
             }
         
+        # Get task to check priority
+        task = self.db.get_task(task_id)
+        if not task:
+            return {
+                'success': False,
+                'message': f"Task {task_id} not found"
+            }
+        
         # Update task
         success = self.db.update_task(task_id, scheduled_time=new_time)
         
         if success:
             # Reschedule notifications (delete old, create new)
-            # TODO: Implement notification rescheduling
+            self.db.delete_notifications_for_task(task_id)
+            self._schedule_task_notifications(task_id, new_time, task['priority'])
             
             task = self.db.get_task(task_id)
             return {

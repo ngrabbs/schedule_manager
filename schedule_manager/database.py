@@ -4,9 +4,12 @@ Database management for schedule storage using SQLite
 
 import sqlite3
 import json
+import logging
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class Database:
@@ -79,6 +82,8 @@ class Database:
         recurrence_rule: Optional[Dict[str, Any]] = None
     ) -> int:
         """Add a new task"""
+        logger.debug(f"DB: Adding task '{title}' (scheduled: {scheduled_time}, recurring: {is_recurring})")
+        
         conn = self.get_connection()
         cursor = conn.cursor()
         
@@ -104,6 +109,7 @@ class Database:
         conn.commit()
         conn.close()
         
+        logger.info(f"DB: Added task ID {task_id}: '{title}'")
         return task_id
     
     def get_task(self, task_id: int) -> Optional[Dict[str, Any]]:
@@ -162,6 +168,8 @@ class Database:
         if not kwargs:
             return False
         
+        logger.debug(f"DB: Updating task {task_id}: {kwargs}")
+        
         conn = self.get_connection()
         cursor = conn.cursor()
         
@@ -189,10 +197,17 @@ class Database:
         conn.commit()
         conn.close()
         
+        if rows_affected > 0:
+            logger.info(f"DB: Updated task {task_id}")
+        else:
+            logger.warning(f"DB: Task {task_id} not found for update")
+        
         return rows_affected > 0
     
     def delete_task(self, task_id: int) -> bool:
         """Delete a task"""
+        logger.debug(f"DB: Deleting task {task_id}")
+        
         conn = self.get_connection()
         cursor = conn.cursor()
         
@@ -200,6 +215,11 @@ class Database:
         rows_affected = cursor.rowcount
         conn.commit()
         conn.close()
+        
+        if rows_affected > 0:
+            logger.info(f"DB: Deleted task {task_id}")
+        else:
+            logger.warning(f"DB: Task {task_id} not found for deletion")
         
         return rows_affected > 0
     
@@ -218,6 +238,8 @@ class Database:
         notification_type: str = "reminder"
     ) -> int:
         """Schedule a notification"""
+        logger.debug(f"DB: Adding notification for task {task_id} at {notification_time}")
+        
         conn = self.get_connection()
         cursor = conn.cursor()
         
@@ -230,10 +252,13 @@ class Database:
         conn.commit()
         conn.close()
         
+        logger.info(f"DB: Added notification ID {notification_id} for task {task_id}")
         return notification_id
     
     def get_pending_notifications(self, before_time: Optional[datetime] = None) -> List[Dict[str, Any]]:
         """Get notifications that need to be sent"""
+        logger.debug(f"DB: Getting pending notifications (before_time={before_time.isoformat() if before_time else 'None'})")
+        
         conn = self.get_connection()
         cursor = conn.cursor()
         
@@ -251,11 +276,17 @@ class Database:
         
         query += " ORDER BY n.notification_time ASC"
         
+        logger.debug(f"DB: Query: {query}")
+        logger.debug(f"DB: Params: {params}")
+        
         cursor.execute(query, params)
         rows = cursor.fetchall()
         conn.close()
         
-        return [self._row_to_dict(row) for row in rows]
+        result = [self._row_to_dict(row) for row in rows]
+        logger.debug(f"DB: Found {len(result)} pending notification(s)")
+        
+        return result
     
     def mark_notification_sent(self, notification_id: int, ntfy_message_id: Optional[str] = None) -> bool:
         """Mark a notification as sent"""
@@ -273,6 +304,21 @@ class Database:
         conn.close()
         
         return rows_affected > 0
+    
+    def delete_notifications_for_task(self, task_id: int) -> int:
+        """Delete all unsent notifications for a task"""
+        logger.debug(f"DB: Deleting unsent notifications for task {task_id}")
+        
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM notifications WHERE task_id = ? AND sent = 0", (task_id,))
+        rows_affected = cursor.rowcount
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"DB: Deleted {rows_affected} unsent notification(s) for task {task_id}")
+        return rows_affected
     
     def _row_to_dict(self, row: sqlite3.Row) -> Dict[str, Any]:
         """Convert a database row to a dictionary"""

@@ -56,9 +56,12 @@ python3 test_command_listener.py "help"
 4. Add action: **Get Contents of URL**
    - URL: `https://ntfy.sh/nick_cmd_a1ask10h`
    - Method: `POST`
-   - Body: `add: [Provided Input]`
+   - Request Body: **Form** (if available) or **File**
+   - Body: Switch to text mode, type `add: ` then add the variable [Provided Input]
 5. Name it "Add Schedule"
 6. Add to Siri: "Hey Siri, add schedule"
+
+**Tip:** In "Get Contents of URL", tap "Show More" to see Request Body options.
 
 ### Shortcut 2: "My Schedule"
 
@@ -66,7 +69,8 @@ python3 test_command_listener.py "help"
 2. Add action: **Get Contents of URL**
    - URL: `https://ntfy.sh/nick_cmd_a1ask10h`
    - Method: `POST`
-   - Body: `list`
+   - Request Body: **Form** (switch to text mode)
+   - Body: Type `list`
 3. Name it "My Schedule"
 4. Add to Siri: "Hey Siri, my schedule"
 
