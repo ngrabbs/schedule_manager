@@ -16,6 +16,8 @@ import pytz
 from .core import ScheduleManager
 from .command_listener import CommandListener
 from .command_processor import CommandProcessor
+from .agent import ScheduleAgent
+from .exceptions import AgentUnavailableError, AgentStartupError, AgentCommunicationError
 
 # Global logger
 logger = logging.getLogger(__name__)
@@ -41,6 +43,21 @@ class NotificationDaemon:
         # Initialize command processing
         self.command_processor = CommandProcessor(self.manager)
         self.command_listener = None
+        self.agent = None
+        
+        # Check if AI agent mode is enabled
+        agent_enabled = self.config.get('agent', {}).get('enabled', False)
+        if agent_enabled:
+            logger.info("AI Agent mode enabled")
+            try:
+                self.agent = ScheduleAgent(self.config)
+                logger.info(f"Agent initialized: {self.agent.model}")
+            except Exception as e:
+                logger.error(f"Failed to initialize agent: {e}")
+                logger.info("Falling back to simple command processor")
+                self.agent = None
+        else:
+            logger.info("AI Agent mode disabled, using simple command processor")
         
         # Check if commands are enabled
         commands_enabled = self.config['ntfy'].get('commands_enabled', False)
@@ -121,11 +138,37 @@ class NotificationDaemon:
         self.scheduler.start()
         self.running = True
         
+        # Start AI agent if configured
+        if self.agent:
+            try:
+                self.agent.start()
+                logger.info("✓ OpenCode agent started")
+                print("✅ AI Schedule Agent running")
+                print(f"   Model: {self.agent.model}")
+                print(f"   Port: {self.agent.port}")
+            except AgentStartupError as e:
+                logger.error(f"Failed to start AI agent: {e}")
+                print(f"⚠️  AI agent failed to start: {e}")
+                print("⚠️  Falling back to simple command processing")
+                
+                # Send notification about agent failure
+                self.manager.notifier.send_notification(
+                    title="⚠️ Agent Startup Failed",
+                    message=f"AI agent failed to start. Using simple command processing. Error: {str(e)[:100]}",
+                    priority="high"
+                )
+                
+                # Disable agent
+                self.agent = None
+        
         # Start command listener if configured
         if self.command_listener:
             self.command_listener.start()
             logger.info("✓ Command listener started")
-            print("✅ Voice commands enabled")
+            if self.agent:
+                print("✅ Voice commands enabled (AI mode)")
+            else:
+                print("✅ Voice commands enabled (simple mode)")
         
         logger.info("Scheduler started successfully")
         print("✅ Daemon started successfully")
@@ -152,6 +195,14 @@ class NotificationDaemon:
         logger.info("Stopping daemon...")
         print("Stopping daemon...")
         self.running = False
+        
+        # Stop AI agent first
+        if self.agent:
+            try:
+                self.agent.stop()
+                logger.info("AI agent stopped")
+            except Exception as e:
+                logger.error(f"Error stopping agent: {e}")
         
         # Stop command listener
         if self.command_listener:
@@ -363,7 +414,63 @@ class NotificationDaemon:
             message_id = metadata.get('id', 'unknown')
             logger.info(f"Processing command (msg_id: {message_id}): {message[:50]}...")
             
-            # Process the command
+            # Route to AI agent if available
+            if self.agent:
+                try:
+                    # Ensure agent is healthy before sending
+                    self.agent._ensure_healthy()
+                    
+                    # Send to AI agent
+                    logger.debug("Routing command to AI agent")
+                    context = {
+                        'source': 'ntfy',
+                        'message_id': message_id,
+                        'timestamp': metadata.get('time'),
+                        'notifier': self.manager.notifier  # Pass notifier for responses
+                    }
+                    
+                    result = self.agent.process_command(message, context)
+                    
+                    # Agent handles response automatically via MCP
+                    logger.info(f"Agent processed command: {message[:30]}...")
+                    
+                    if self.verbose:
+                        print(f"✓ AI Agent: {message[:40]}...")
+                    
+                    return  # Agent handled everything
+                
+                except AgentUnavailableError as e:
+                    logger.error(f"Agent unavailable: {e}")
+                    
+                    # Send error notification to user
+                    self.manager.notifier.send_notification(
+                        title="⚠️ AI Agent Offline",
+                        message="AI agent is not responding. Using simple command processing.",
+                        priority="high"
+                    )
+                    
+                    # Fall through to simple processor
+                    logger.info("Falling back to simple command processor")
+                
+                except AgentCommunicationError as e:
+                    logger.error(f"Agent communication error: {e}")
+                    
+                    # Send error notification
+                    self.manager.notifier.send_error_response(
+                        f"⚠️ Error communicating with AI agent. Using fallback."
+                    )
+                    
+                    # Fall through to simple processor
+                    logger.info("Falling back to simple command processor")
+                
+                except Exception as e:
+                    logger.error(f"Unexpected error with agent: {e}", exc_info=True)
+                    
+                    # Fall through to simple processor
+                    logger.info("Falling back to simple command processor")
+            
+            # Simple processor path (fallback or when agent disabled)
+            logger.debug("Using simple command processor")
             result = self.command_processor.process_command(message, source=message_id)
             
             # Send response

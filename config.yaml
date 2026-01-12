@@ -21,3 +21,14 @@ schedule:
   
 database:
   path: "data/schedule.db"
+
+# AI Agent Configuration
+# When enabled, voice commands are processed by an intelligent AI agent with conversation context
+# When disabled, commands use simple keyword matching
+agent:
+  enabled: false  # Set to true to enable AI agent mode
+  port: 5555  # Port for OpenCode server
+  model: "ollama/llama3.2"  # Model to use: "claude", "ollama/llama3.2", "openai/gpt-4", etc.
+  agent_name: "schedule"  # OpenCode agent to use
+  startup_timeout_seconds: 30  # How long to wait for OpenCode to start
+  health_check_timeout_seconds: 5  # Timeout for health checks
