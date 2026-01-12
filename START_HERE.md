@@ -27,9 +27,9 @@ If this works, move to Step 2. If not, check the daemon logs.
 
 ## Step 2: iOS Shortcuts Setup (5 minutes)
 
-### 🚨 IMPORTANT: iOS Form Fix
+### ✅ GOOD NEWS: Both Methods Now Work!
 
-Your iOS version shows **Request Body: Form** with columns for **Key / Type / Value**.
+The system now automatically decodes iOS Shortcuts messages, so **both methods work**:
 
 **You have TWO options:**
 
@@ -54,9 +54,21 @@ If you prefer using Request Body:
 1. Request Body: Select `Form`
 2. Tap `+` to add a row
 3. Fill in:
-   - **Key**: (leave empty)
+   - **Key**: (leave empty or anything)
    - **Type**: Select **"File"**
-   - **Value**: Type your command
+   - **Value**: Type your command (e.g., `add: [Ask for Input]`)
+
+**Note:** The system now automatically handles URL encoding from Form mode!
+
+### Option C: Even Easier - Just Use JSON!
+
+Actually, the simplest method:
+
+1. Request Body: Select `JSON`
+2. Type your command directly: `add: [Ask for Input]`
+3. That's it!
+
+The system will extract your command from the JSON wrapper automatically.
 
 ---
 
