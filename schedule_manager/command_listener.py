@@ -9,6 +9,7 @@ import logging
 import threading
 from typing import Optional, Callable
 from datetime import datetime
+from urllib.parse import unquote
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,35 @@ class CommandListener:
             self.thread.join(timeout=5)
         
         logger.info("Command listener stopped")
+    
+    def _clean_message(self, message: str) -> str:
+        """
+        Clean up message from various iOS Shortcuts encoding formats
+        
+        Handles:
+        - URL-encoded with '=' prefix: =add%3A+reminder
+        - JSON wrapped: {"":"add: reminder"}
+        - Plain text: add: reminder (no change)
+        """
+        # Remove leading '=' (from Form method)
+        if message.startswith('='):
+            message = message[1:]
+        
+        # URL decode (Form method encodes special characters)
+        if '%' in message or '+' in message:
+            message = unquote(message.replace('+', ' '))
+        
+        # Check if wrapped in JSON object (JSON method)
+        if message.startswith('{') and message.endswith('}'):
+            try:
+                parsed = json.loads(message)
+                # If it's {"":"command"}, extract the value
+                if isinstance(parsed, dict) and len(parsed) == 1:
+                    message = list(parsed.values())[0]
+            except json.JSONDecodeError:
+                pass  # Not valid JSON, use as-is
+        
+        return message.strip()
     
     def _listen_loop(self):
         """Main listening loop with automatic reconnection"""
@@ -147,6 +177,16 @@ class CommandListener:
                     if not message:
                         logger.debug("Received empty message, ignoring")
                         continue
+                    
+                    # Clean up message from various iOS Shortcuts formats
+                    raw_message = message
+                    message = self._clean_message(message)
+                    
+                    if message != raw_message:
+                        logger.debug(f"Cleaned message: '{raw_message}' -> '{message}'")
+                    
+                    # Clean up message from various iOS Shortcuts formats
+                    message = self._clean_message(message)
                     
                     # Extract metadata
                     metadata = {
