@@ -48,3 +48,5 @@ Thumbs.db
 # Personal config (keep config.yaml as template)
 # Uncomment if you want to prevent committing your personal config:
 # config.yaml
+test_*.py
+.venv/

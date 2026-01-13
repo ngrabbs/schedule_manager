@@ -34,6 +34,27 @@ class ScheduleAgent:
     - Routes responses back via ntfy.sh automatically
     """
     
+    # System prompt to guide the AI's behavior
+    SYSTEM_PROMPT = """You are a scheduling assistant integrated with a task management system.
+
+Your role is to parse natural language commands and respond with clear, concise confirmations.
+
+Available operations:
+- ADD: Create new tasks (e.g., "add call mom tomorrow at 3pm")
+- VIEW: Show tasks for a date/time period (e.g., "view today", "show tomorrow")
+- UPDATE: Modify task details (e.g., "update task 5 to high priority")
+- RESCHEDULE: Change task time (e.g., "move meeting to 4pm")
+- COMPLETE: Mark tasks done (e.g., "complete task 3")
+- DELETE: Remove tasks (e.g., "delete task 7")
+- RECURRING: Add repeating tasks (e.g., "gym every monday at 6am")
+
+Guidelines:
+- Be concise and direct in responses
+- Confirm what action was taken
+- If the command is unclear, ask for clarification
+- Focus on scheduling operations only
+- Parse dates/times naturally (today, tomorrow, next week, etc.)"""
+    
     def __init__(self, config: Dict[str, Any]):
         """
         Initialize the Schedule Agent manager
@@ -55,6 +76,7 @@ class ScheduleAgent:
         self.process: Optional[subprocess.Popen] = None
         self.base_url = f"http://localhost:{self.port}"
         self.is_running = False
+        self.session_id: Optional[str] = None  # OpenCode session ID for conversation context
         
         logger.info(f"Agent manager initialized: port={self.port}, model={self.model}")
     
@@ -77,6 +99,7 @@ class ScheduleAgent:
         try:
             self._spawn_process()
             self._wait_for_ready()
+            self.session_id = self._create_session()
             self.is_running = True
             logger.info("✓ OpenCode agent started successfully")
         
@@ -109,6 +132,23 @@ class ScheduleAgent:
         logger.info("Stopping OpenCode agent...")
         
         try:
+            # Delete the session before stopping server
+            if self.session_id:
+                try:
+                    logger.debug(f"Deleting OpenCode session {self.session_id}...")
+                    response = requests.delete(
+                        f"{self.base_url}/session/{self.session_id}",
+                        timeout=5
+                    )
+                    if response.status_code == 200:
+                        logger.info(f"✓ Deleted session: {self.session_id}")
+                    else:
+                        logger.warning(f"Session deletion returned status {response.status_code}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete session: {e}")
+                finally:
+                    self.session_id = None
+            
             if self.process:
                 # Try graceful shutdown first
                 logger.debug("Sending SIGTERM to OpenCode process...")
@@ -164,24 +204,42 @@ class ScheduleAgent:
             context: Command context (message_id, timestamp, etc.)
         
         Returns:
-            Dict with result information
+            Dict with result information containing the AI's response text
         
         Raises:
-            AgentUnavailableError: If agent is not healthy
+            AgentUnavailableError: If agent is not healthy or session not created
             AgentCommunicationError: If communication with agent fails
         """
-        # Pre-flight health check
+        # Pre-flight checks
         self._ensure_healthy()
         
-        logger.debug(f"Sending command to agent: {message[:50]}...")
+        if not self.session_id:
+            raise AgentUnavailableError("No active session - agent not properly initialized")
+        
+        logger.debug(f"Sending command to agent session {self.session_id}: {message[:50]}...")
         
         try:
-            # Send command to OpenCode agent API
+            # Send message to OpenCode session via HTTP API
+            # Using /message endpoint with PromptInput schema
+            # Split model string into provider and model ID
+            model_parts = self.model.split('/', 1)
+            model_config = {
+                'providerID': model_parts[0] if len(model_parts) > 1 else 'ollama',
+                'modelID': model_parts[1] if len(model_parts) > 1 else model_parts[0]
+            }
+            
             response = requests.post(
-                f"{self.base_url}/command",
+                f"{self.base_url}/session/{self.session_id}/message",
                 json={
-                    'message': message,
-                    'context': context
+                    'parts': [
+                        {
+                            'type': 'text',
+                            'text': message
+                        }
+                    ],
+                    'model': model_config,
+                    'agent': self.agent_name,
+                    'system': self.SYSTEM_PROMPT
                 },
                 timeout=30  # AI processing can take time
             )
@@ -189,11 +247,16 @@ class ScheduleAgent:
             response.raise_for_status()
             result = response.json()
             
-            logger.debug(f"Agent response received: {result.get('status', 'unknown')}")
+            # Extract text from response parts
+            # Response format: { "info": {...}, "parts": [...] }
+            response_text = self._extract_text_from_parts(result.get('parts', []))
+            
+            logger.debug(f"Agent response received ({len(response_text)} chars)")
             
             return {
                 'success': True,
-                'result': result
+                'result': response_text,
+                'raw_response': result  # Keep full response for debugging
             }
         
         except requests.exceptions.Timeout:
@@ -219,6 +282,23 @@ class ScheduleAgent:
             self.is_running = False
             raise AgentUnavailableError("OpenCode agent is not responding")
     
+    def _extract_text_from_parts(self, parts: list) -> str:
+        """
+        Extract text content from OpenCode response parts
+        
+        Args:
+            parts: List of message parts from OpenCode API response
+        
+        Returns:
+            Concatenated text from all text parts
+        """
+        text_parts = []
+        for part in parts:
+            if isinstance(part, dict) and part.get('type') == 'text':
+                text_parts.append(part.get('text', ''))
+        
+        return '\n'.join(text_parts).strip()
+    
     def _spawn_process(self):
         """
         Spawn the OpenCode server subprocess
@@ -227,12 +307,11 @@ class ScheduleAgent:
             AgentStartupError: If process fails to spawn
         """
         # Build OpenCode command
+        # Note: Model and agent are now specified per-request, not at server startup
         cmd = [
-            'opencode',
+            'opencode', 'serve',
             '--port', str(self.port),
-            '--model', self.model,
-            '--agent', self.agent_name,
-            'serve'
+            '--hostname', '127.0.0.1'
         ]
         
         logger.debug(f"Spawning OpenCode: {' '.join(cmd)}")
@@ -304,6 +383,46 @@ class ScheduleAgent:
         logger.error(error_msg)
         raise AgentStartupError(error_msg)
     
+    def _create_session(self) -> str:
+        """
+        Create a new OpenCode session via HTTP API
+        
+        Returns:
+            str: Session ID for maintaining conversation context
+        
+        Raises:
+            AgentStartupError: If session creation fails
+        """
+        logger.debug("Creating OpenCode session...")
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/session",
+                json={
+                    "title": "Schedule Manager Agent"
+                    # permission is optional, omit it for now
+                },
+                timeout=10
+            )
+            
+            # Log response for debugging
+            if response.status_code != 200:
+                logger.error(f"Session creation failed: {response.status_code}")
+                logger.error(f"Response body: {response.text}")
+            
+            response.raise_for_status()
+            session_info = response.json()
+            session_id = session_info['id']
+            
+            logger.info(f"✓ Created OpenCode session: {session_id}")
+            return session_id
+        
+        except requests.exceptions.RequestException as e:
+            raise AgentStartupError(f"Failed to create session: {e}")
+        
+        except Exception as e:
+            raise AgentStartupError(f"Unexpected error creating session: {e}")
+    
     def get_status(self) -> Dict[str, Any]:
         """
         Get the current status of the agent
@@ -318,5 +437,6 @@ class ScheduleAgent:
             'model': self.model,
             'agent': self.agent_name,
             'base_url': self.base_url,
+            'session_id': self.session_id,
             'pid': self.process.pid if self.process else None
         }
