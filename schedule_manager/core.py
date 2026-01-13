@@ -15,12 +15,21 @@ from .nlp import DateTimeParser
 class ScheduleManager:
     def __init__(self, config_path: str = "config.yaml"):
         """Initialize schedule manager with configuration"""
-        self.config = self._load_config(config_path)
+        # If config_path is relative, look for it relative to this package
+        config_path_obj = Path(config_path)
+        if not config_path_obj.is_absolute():
+            # Try current directory first
+            if not config_path_obj.exists():
+                # Fall back to package directory
+                package_dir = Path(__file__).parent.parent
+                config_path_obj = package_dir / config_path
+        
+        self.config = self._load_config(str(config_path_obj))
         
         # Initialize database
         db_path = self.config['database']['path']
         if not Path(db_path).is_absolute():
-            config_dir = Path(config_path).parent
+            config_dir = config_path_obj.parent
             db_path = str(config_dir / db_path)
         self.db = Database(db_path)
         
