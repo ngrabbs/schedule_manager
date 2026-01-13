@@ -2,6 +2,12 @@
 
 Get your AI Schedule Manager up and running in 5 minutes!
 
+## Prerequisites
+
+- Python 3.8+
+- ntfy.sh app (iOS/Android)
+- Basic terminal knowledge
+
 ## 1. Install ntfy.sh App
 
 **On your phone/watch:**
@@ -15,13 +21,15 @@ Edit `config.yaml`:
 ```yaml
 ntfy:
   topic: "my_secret_schedule_abc123xyz"  # CHANGE THIS!
+  command_topic: "my_commands_xyz789"    # CHANGE THIS TOO!
 ```
 
-**Important:** Pick something unique and random. This is your password!
+**Important:** Pick something unique and random. These are like passwords!
 
 Quick random topic generator:
 ```bash
 echo "my_schedule_$(openssl rand -hex 8)"
+echo "my_commands_$(openssl rand -hex 8)"
 ```
 
 ## 3. Install Dependencies
@@ -31,7 +39,13 @@ cd schedule-manager
 pip3 install -r requirements.txt
 ```
 
-## 4. Test Setup
+## 4. Initialize Database
+
+```bash
+python3 -m schedule_manager.database
+```
+
+## 5. Test Setup
 
 ```bash
 python3 example_usage.py
@@ -39,7 +53,7 @@ python3 example_usage.py
 
 Check your phone - you should get a test notification!
 
-## 5. Start the Daemon
+## 6. Start the Daemon
 
 ```bash
 python3 -m schedule_manager.daemon
@@ -50,41 +64,20 @@ The daemon will:
 - ✓ Send morning daily summary at 7am
 - ✓ Send "upcoming" summaries during work hours
 - ✓ Generate recurring tasks automatically
-
-## 6. Set Up OpenCode Integration
-
-Copy the MCP server config to your OpenCode settings:
-
-```bash
-# Find your OpenCode config location
-# Usually: ~/.config/opencode/mcp.json
-
-# Add this to your MCP servers:
-{
-  "schedule-manager": {
-    "command": "python3",
-    "args": ["-m", "schedule_manager.mcp_server"],
-    "cwd": "/path/to/schedule-manager"
-  }
-}
-```
-
-Restart OpenCode, and you're done!
+- ✓ Listen for voice commands on your command topic
 
 ## Usage Examples
 
-### Via OpenCode:
+### Via Voice Commands (iOS Shortcuts):
 
 ```
-You: "Add a task to call mom tomorrow at 3pm"
-OpenCode: ✓ Added: "Call mom" scheduled for Jan 12, 2026 at 3:00 PM
-
-You: "What do I have today?"
-OpenCode: [Shows your daily schedule]
-
-You: "I have class mon, wed, fri at 12:00-12:45"
-OpenCode: ✓ Added recurring task with time-blocking
+You: "Hey Siri, add schedule"
+Siri: "What should I schedule?"
+You: "Call mom tomorrow at 3pm"
+[Notification]: "✅ Added: Call mom 📅 Mon Jan 12 at 03:00 PM"
 ```
+
+See [Voice Commands Guide](../user-guides/voice-commands.md) for full setup.
 
 ### Via Python:
 
@@ -103,21 +96,20 @@ tasks = manager.get_tasks()
 print(manager.get_daily_summary())
 ```
 
-## Running as a Service
+### Via OpenCode Integration:
 
-To keep the daemon running 24/7:
-
-```bash
-# Copy service file
-sudo cp schedule-manager.service /etc/systemd/system/schedule-manager@.service
-
-# Start service
-sudo systemctl enable schedule-manager@yourusername
-sudo systemctl start schedule-manager@yourusername
-
-# Check status
-sudo systemctl status schedule-manager@yourusername
 ```
+You: "Add a task to call mom tomorrow at 3pm"
+OpenCode: ✓ Added: "Call mom" scheduled for Jan 12, 2026 at 3:00 PM
+
+You: "What do I have today?"
+OpenCode: [Shows your daily schedule]
+
+You: "I have class mon, wed, fri at 12:00-12:45"
+OpenCode: ✓ Added recurring task with time-blocking
+```
+
+See [Installation Guide](installation.md) for OpenCode MCP setup.
 
 ## Notifications You'll Get
 
@@ -148,6 +140,10 @@ Discuss Q1 roadmap
 🟢 05:00 PM (in 4h 30m) - Gym
 ```
 
+## Running as a Service
+
+To keep the daemon running 24/7, see [Systemd Setup Guide](../user-guides/systemd.md).
+
 ## Troubleshooting
 
 **Not getting notifications?**
@@ -157,25 +153,18 @@ Discuss Q1 roadmap
 
 **Daemon crashed?**
 ```bash
-# If using systemd:
-sudo journalctl -u schedule-manager@yourusername -n 50
-
-# If running manually:
+# Check logs
 tail -f daemon.log
 ```
 
+For more help, see [Troubleshooting Guide](../troubleshooting/common-issues.md).
+
 ## Next Steps
 
-- Read the full README.md for advanced features
-- Customize notification times in config.yaml
-- Add custom workflows and integrations
-- Build a web dashboard (optional)
-
-## Support
-
-- Issues: Open a GitHub issue
-- Questions: Check README.md
-- Want to contribute? Fork and PR!
+- [Set up Voice Commands](../user-guides/voice-commands.md) - Control with Siri
+- [iOS Shortcuts Guide](../user-guides/ios-shortcuts.md) - Detailed setup
+- [Command Reference](../user-guides/commands.md) - All available commands
+- [Full Installation Guide](installation.md) - Advanced setup options
 
 ---
 
