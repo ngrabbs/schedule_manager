@@ -35,25 +35,22 @@ class ScheduleAgent:
     """
     
     # System prompt to guide the AI's behavior
-    SYSTEM_PROMPT = """You are a scheduling assistant integrated with a task management system.
+    SYSTEM_PROMPT = """You are a scheduling assistant with access to schedule management tools.
 
-Your role is to parse natural language commands and respond with clear, concise confirmations.
+IMPORTANT: You must USE the available MCP tools (schedule_add, schedule_view, etc.) to perform actions. Do not just explain what to do - actually call the tools.
 
-Available operations:
-- ADD: Create new tasks (e.g., "add call mom tomorrow at 3pm")
-- VIEW: Show tasks for a date/time period (e.g., "view today", "show tomorrow")
-- UPDATE: Modify task details (e.g., "update task 5 to high priority")
-- RESCHEDULE: Change task time (e.g., "move meeting to 4pm")
-- COMPLETE: Mark tasks done (e.g., "complete task 3")
-- DELETE: Remove tasks (e.g., "delete task 7")
-- RECURRING: Add repeating tasks (e.g., "gym every monday at 6am")
+When the user asks to add a task, call schedule_add immediately.
+When the user asks to view tasks, call schedule_view immediately.
+When the user asks to update a task, call schedule_update immediately.
 
-Guidelines:
-- Be concise and direct in responses
-- Confirm what action was taken
-- If the command is unclear, ask for clarification
-- Focus on scheduling operations only
-- Parse dates/times naturally (today, tomorrow, next week, etc.)"""
+After executing tools, provide a brief confirmation of what was done.
+
+Examples:
+- "add call mom tomorrow at 3pm" → Call schedule_add with description
+- "view today" → Call schedule_view for today
+- "update task 5 to high priority" → Call schedule_update with task_id and priority
+
+Be concise. Execute first, confirm second."""
     
     def __init__(self, config: Dict[str, Any]):
         """
@@ -396,12 +393,19 @@ Guidelines:
         logger.debug("Creating OpenCode session...")
         
         try:
+            # Create session with agent, model, and MCP server connections
+            session_config = {
+                "title": "Schedule Manager Agent",
+                "agent": self.agent_name,  # "schedule" agent
+                "model": self.model,  # e.g., "ollama/llama3.2:3b"
+                "mcpServers": ["schedule-manager"]  # Connect to our MCP server
+            }
+            
+            logger.debug(f"Session config: {session_config}")
+            
             response = requests.post(
                 f"{self.base_url}/session",
-                json={
-                    "title": "Schedule Manager Agent"
-                    # permission is optional, omit it for now
-                },
+                json=session_config,
                 timeout=10
             )
             
