@@ -62,10 +62,21 @@ class Database:
             )
         """)
         
+        # IP history table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ip_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip_address TEXT NOT NULL,
+                detected_at TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
         # Create indices for performance
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_scheduled ON tasks(scheduled_time)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_time ON notifications(notification_time, sent)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ip_history_detected ON ip_history(detected_at)")
         
         conn.commit()
         conn.close()
@@ -338,3 +349,54 @@ class Database:
                 result['recurrence_rule'] = None
         
         return result
+    
+    def get_current_ip(self) -> Optional[str]:
+        """Get the most recent IP address from history"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT ip_address FROM ip_history 
+            ORDER BY detected_at DESC 
+            LIMIT 1
+        """)
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return row['ip_address']
+        return None
+    
+    def save_ip_address(self, ip_address: str, detected_at: datetime) -> int:
+        """Save a new IP address to history"""
+        logger.debug(f"DB: Saving IP address {ip_address}")
+        
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            INSERT INTO ip_history (ip_address, detected_at)
+            VALUES (?, ?)
+        """, (ip_address, detected_at.isoformat()))
+        
+        ip_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"DB: Saved IP address ID {ip_id}: {ip_address}")
+        return ip_id
+    
+    def get_ip_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get IP address change history"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM ip_history 
+            ORDER BY detected_at DESC 
+            LIMIT ?
+        """, (limit,))
+        rows = cursor.fetchall()
+        conn.close()
+        
+        return [dict(row) for row in rows]

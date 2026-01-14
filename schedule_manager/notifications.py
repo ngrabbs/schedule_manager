@@ -306,3 +306,32 @@ class NtfyNotifier:
             priority='low',
             tags=["x", "warning"]
         )
+    
+    def send_ip_change_notification(
+        self, 
+        new_ip: str, 
+        old_ip: Optional[str] = None
+    ) -> Optional[str]:
+        """
+        Send a notification when public IP address changes
+        
+        Args:
+            new_ip: The new IP address
+            old_ip: The previous IP address (optional)
+        
+        Returns:
+            Message ID from ntfy.sh, or None if failed
+        """
+        if old_ip:
+            title = "🌐 IP Address Changed"
+            message = f"New IP: {new_ip}\nPrevious: {old_ip}"
+        else:
+            title = "🌐 IP Address Detected"
+            message = f"Current IP: {new_ip}"
+        
+        return self.send_notification(
+            title=title,
+            message=message,
+            priority='high',  # High priority for IP changes
+            tags=["globe_with_meridians", "warning"]
+        )

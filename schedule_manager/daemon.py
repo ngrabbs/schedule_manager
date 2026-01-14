@@ -18,6 +18,7 @@ from .command_listener import CommandListener
 from .command_processor import CommandProcessor
 from .agent import ScheduleAgent
 from .exceptions import AgentUnavailableError, AgentStartupError, AgentCommunicationError
+from .ip_monitor import IPMonitor
 
 # Global logger
 logger = logging.getLogger(__name__)
@@ -44,6 +45,10 @@ class NotificationDaemon:
         self.command_processor = CommandProcessor(self.manager)
         self.command_listener = None
         self.agent = None
+        
+        # Initialize IP monitor
+        self.ip_monitor = IPMonitor(self.manager.db, self.manager.notifier)
+        logger.info("IP monitor initialized")
         
         # Check if AI agent mode is enabled
         agent_enabled = self.config.get('agent', {}).get('enabled', False)
@@ -133,6 +138,15 @@ class NotificationDaemon:
             trigger=CronTrigger(hour=0, minute=0, timezone=self.timezone),
             id='recurring_tasks',
             name='Generate recurring tasks'
+        )
+        
+        # Schedule IP address monitoring (every 5 minutes)
+        logger.info("Registering job: Check IP address (every 5 minutes)")
+        self.scheduler.add_job(
+            self._check_ip_address,
+            trigger=IntervalTrigger(minutes=5),
+            id='ip_monitor',
+            name='Check IP address'
         )
         
         self.scheduler.start()
@@ -407,6 +421,14 @@ class NotificationDaemon:
         except Exception as e:
             logger.error(f"Error generating recurring tasks: {e}", exc_info=True)
             print(f"Error generating recurring tasks: {e}")
+    
+    def _check_ip_address(self):
+        """Check for IP address changes and notify"""
+        try:
+            logger.debug("Checking public IP address...")
+            self.ip_monitor.check_and_notify()
+        except Exception as e:
+            logger.error(f"Error checking IP address: {e}", exc_info=True)
     
     def _handle_command(self, message: str, metadata: dict):
         """Handle an inbound command from the command listener"""
