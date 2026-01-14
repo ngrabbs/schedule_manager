@@ -10,7 +10,8 @@ ntfy:
 
 notifications:
   daily_summary_time: "07:00"  # Morning summary time (24-hour format)
-  reminder_minutes_before: [15, 5, 0]  # Send reminders N minutes before tasks (0 = at task time)
+  reminder_minutes_before: [0]  # Default: single reminder at task time
+  reminder_minutes_before_high_priority: [15, 5, 0]  # High priority tasks get multiple reminders
   upcoming_summary_interval_minutes: 120  # Send upcoming summary every N minutes during work hours
   upcoming_summary_work_hours: ["09:00", "17:00"]  # Only send upcoming summaries during these hours
   
@@ -26,9 +27,9 @@ database:
 # When enabled, voice commands are processed by an intelligent AI agent with conversation context
 # When disabled, commands use simple keyword matching
 agent:
-  enabled: false  # Set to true to enable AI agent mode
+  enabled: true # Set to true to enable AI agent mode
   port: 5555  # Port for OpenCode server
-  model: "ollama/llama3.2"  # Model to use: "claude", "ollama/llama3.2", "openai/gpt-4", etc.
+  model: "ollama/llama3.2:3b"  # Model to use: "claude", "ollama/llama3.2", "openai/gpt-4", etc.
   agent_name: "schedule"  # OpenCode agent to use
   startup_timeout_seconds: 30  # How long to wait for OpenCode to start
   health_check_timeout_seconds: 5  # Timeout for health checks

@@ -141,7 +141,17 @@ class ScheduleManager:
     
     def _schedule_task_notifications(self, task_id: int, scheduled_time: datetime, priority: str):
         """Schedule reminder notifications for a task"""
-        reminder_minutes = self.config['notifications']['reminder_minutes_before']
+        # Use different reminder pattern based on priority
+        if priority == 'high':
+            reminder_minutes = self.config['notifications'].get(
+                'reminder_minutes_before_high_priority',
+                [15, 5, 0]  # Default fallback for high priority
+            )
+        else:
+            reminder_minutes = self.config['notifications'].get(
+                'reminder_minutes_before',
+                [0]  # Default fallback for medium/low priority
+            )
         
         for minutes_before in reminder_minutes:
             notification_time = scheduled_time - timedelta(minutes=minutes_before)
