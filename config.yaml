@@ -24,13 +24,11 @@ database:
   path: "data/schedule.db"
 
 # AI Agent Configuration
-# When enabled, voice commands are processed by an intelligent AI agent with conversation context
+# When enabled, voice commands are processed by an intelligent AI agent
+# Uses OpenCode CLI mode (per-command) with the schedule agent and MCP tools
 # When disabled, commands use simple keyword matching
 agent:
-  enabled: true # Set to true to enable AI agent mode
-  port: 5555  # Port for OpenCode server
-  model: "ollama/gpt-oss:20b-128k"  # Model with tool calling support (llama3.2:3b doesn't support tools)
-  agent_name: "general"  # Use "general" agent for tool calling (not "schedule")
-  startup_timeout_seconds: 30  # How long to wait for OpenCode to start
-  health_check_timeout_seconds: 5  # Timeout for health checks
-  command_timeout_seconds: 90  # How long to wait for agent to process commands (default: 90s)
+  enabled: true  # Set to true to enable AI agent mode
+  model: "ollama/gpt-oss:120b-128k"  # Model with tool calling support
+  agent_name: "schedule"  # OpenCode agent to use (see ~/.config/opencode/agent/schedule.md)
+  command_timeout_seconds: 90  # How long to wait for CLI command to complete

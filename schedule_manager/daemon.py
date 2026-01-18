@@ -17,7 +17,7 @@ from .core import ScheduleManager
 from .command_listener import CommandListener
 from .command_processor import CommandProcessor
 from .agent import ScheduleAgent
-from .exceptions import AgentUnavailableError, AgentStartupError, AgentCommunicationError
+from .exceptions import AgentUnavailableError, AgentCommunicationError
 from .ip_monitor import IPMonitor
 
 # Global logger
@@ -152,28 +152,12 @@ class NotificationDaemon:
         self.scheduler.start()
         self.running = True
         
-        # Start AI agent if configured
+        # Log AI agent status if configured (CLI mode - no server to start)
         if self.agent:
-            try:
-                self.agent.start()
-                logger.info("✓ OpenCode agent started")
-                print("✅ AI Schedule Agent running")
-                print(f"   Model: {self.agent.model}")
-                print(f"   Port: {self.agent.port}")
-            except AgentStartupError as e:
-                logger.error(f"Failed to start AI agent: {e}")
-                print(f"⚠️  AI agent failed to start: {e}")
-                print("⚠️  Falling back to simple command processing")
-                
-                # Send notification about agent failure
-                self.manager.notifier.send_notification(
-                    title="⚠️ Agent Startup Failed",
-                    message=f"AI agent failed to start. Using simple command processing. Error: {str(e)[:100]}",
-                    priority="high"
-                )
-                
-                # Disable agent
-                self.agent = None
+            logger.info("✓ AI agent ready (CLI mode)")
+            print("✅ AI Schedule Agent ready (CLI mode)")
+            print(f"   Model: {self.agent.model}")
+            print(f"   Agent: {self.agent.agent_name}")
         
         # Start command listener if configured
         if self.command_listener:
@@ -210,13 +194,9 @@ class NotificationDaemon:
         print("Stopping daemon...")
         self.running = False
         
-        # Stop AI agent first
+        # Note: AI agent uses CLI mode, no server to stop
         if self.agent:
-            try:
-                self.agent.stop()
-                logger.info("AI agent stopped")
-            except Exception as e:
-                logger.error(f"Error stopping agent: {e}")
+            logger.info("AI agent was in CLI mode, nothing to stop")
         
         # Stop command listener
         if self.command_listener:
@@ -439,11 +419,8 @@ class NotificationDaemon:
             # Route to AI agent if available
             if self.agent:
                 try:
-                    # Ensure agent is healthy before sending
-                    self.agent._ensure_healthy()
-                    
-                    # Send to AI agent
-                    logger.debug("Routing command to AI agent")
+                    # Send to AI agent (CLI mode - no health check needed)
+                    logger.debug("Routing command to AI agent (CLI mode)")
                     context = {
                         'source': 'ntfy',
                         'message_id': message_id,
