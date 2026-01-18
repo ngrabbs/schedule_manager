@@ -4,49 +4,49 @@
 
 ```mermaid
 flowchart TB
-    subgraph User["👤 User Interfaces"]
-        Siri["🎤 Siri / Apple Watch"]
-        Phone["📱 iPhone ntfy App"]
-        CLI["💻 Command Line"]
-        OpenCodeUI["🖥️ OpenCode IDE"]
+    subgraph User["User Interfaces"]
+        Siri["Siri / Apple Watch"]
+        Phone["iPhone ntfy App"]
+        CLI["Command Line"]
+        OpenCodeUI["OpenCode IDE"]
     end
 
-    subgraph External["☁️ External Services"]
+    subgraph External["External Services"]
         ntfy["ntfy.sh Server"]
-        Ollama["🦙 Ollama Server<br/>(192.168.1.250:11434)"]
+        Ollama["Ollama Server<br/>(192.168.1.250:11434)"]
     end
 
-    subgraph Daemon["🔄 Schedule Manager Daemon"]
+    subgraph Daemon["Schedule Manager Daemon"]
         direction TB
-        Scheduler["⏰ APScheduler<br/>(Job Scheduler)"]
-        CommandListener["👂 Command Listener<br/>(ntfy subscription)"]
-        NotificationSender["📤 Notification Sender"]
-        IPMonitor["🌐 IP Monitor"]
-        RecurringGen["🔁 Recurring Task Generator"]
+        Scheduler["APScheduler<br/>(Job Scheduler)"]
+        CommandListener["Command Listener<br/>(ntfy subscription)"]
+        NotificationSender["Notification Sender"]
+        IPMonitor["IP Monitor"]
+        RecurringGen["Recurring Task Generator"]
     end
 
-    subgraph Agent["🤖 AI Agent Layer"]
-        ScheduleAgent["Schedule Agent<br/>(agent.py)"]
-        OpenCodeServer["OpenCode Server<br/>(port 5555)"]
-        SystemPrompt["System Prompt<br/>(tool instructions)"]
+    subgraph Agent["AI Agent (CLI Mode)"]
+        AgentRunner["agent.py"]
+        OpenCodeCLI["opencode CLI<br/>(subprocess)"]
+        SchedulePrompt["Schedule Agent Prompt<br/>(~/.config/opencode/agent/schedule.md)"]
     end
 
-    subgraph MCP["🔌 MCP Integration"]
+    subgraph MCP["MCP Integration"]
         MCPServer["MCP Server<br/>(mcp_server.py)"]
-        MCPTools["MCP Tools:<br/>• schedule_add<br/>• schedule_view<br/>• schedule_update<br/>• schedule_delete<br/>• schedule_complete<br/>• schedule_reschedule<br/>• schedule_summary<br/>• schedule_upcoming<br/>• schedule_add_recurring"]
+        MCPTools["MCP Tools:<br/>schedule_add<br/>schedule_view<br/>schedule_update<br/>schedule_delete<br/>schedule_complete<br/>schedule_reschedule<br/>schedule_summary<br/>schedule_upcoming<br/>schedule_add_recurring"]
     end
 
-    subgraph Core["⚙️ Core Components"]
+    subgraph Core["Core Components"]
         ScheduleManager["Schedule Manager<br/>(core.py)"]
         NLParser["Natural Language Parser<br/>(parser.py)"]
-        Database["📊 SQLite Database<br/>(data/schedule.db)"]
-        Config["⚙️ Config<br/>(config.yaml)"]
+        Database["SQLite Database<br/>(data/schedule.db)"]
+        Config["Config<br/>(config.yaml)"]
     end
 
-    subgraph Data["💾 Database Tables"]
-        Tasks["tasks<br/>• id, title, scheduled_time<br/>• priority, status, tags<br/>• is_recurring, recurrence_rule"]
-        Notifications["notifications<br/>• id, task_id<br/>• notification_time<br/>• sent, notification_type"]
-        IPHistory["ip_history<br/>• ip_address<br/>• detected_at"]
+    subgraph Data["Database Tables"]
+        Tasks["tasks<br/>id, title, scheduled_time<br/>priority, status, tags<br/>is_recurring, recurrence_rule"]
+        Notifications["notifications<br/>id, task_id<br/>notification_time<br/>sent, notification_type"]
+        IPHistory["ip_history<br/>ip_address<br/>detected_at"]
     end
 
     %% User Input Flows
@@ -60,12 +60,13 @@ flowchart TB
     NotificationSender -->|"HTTP POST<br/>(notifications topic)"| ntfy
     ntfy -->|"Push Notification"| Phone
 
-    %% Daemon Internal Flow
-    CommandListener -->|"Raw Command"| ScheduleAgent
-    ScheduleAgent -->|"HTTP API"| OpenCodeServer
-    OpenCodeServer -->|"AI Request"| Ollama
-    Ollama -->|"AI Response"| OpenCodeServer
-    OpenCodeServer -->|"Tool Calls"| MCPServer
+    %% Daemon to Agent Flow (CLI Mode)
+    CommandListener -->|"Natural language"| AgentRunner
+    AgentRunner -->|"subprocess.run()"| OpenCodeCLI
+    OpenCodeCLI -->|"Loads prompt"| SchedulePrompt
+    OpenCodeCLI -->|"AI Request"| Ollama
+    Ollama -->|"Tool Calls"| OpenCodeCLI
+    OpenCodeCLI -->|"MCP Protocol"| MCPServer
 
     %% MCP Flow
     MCPServer --> MCPTools
@@ -105,7 +106,7 @@ flowchart TB
     class Siri,Phone,CLI,OpenCodeUI userInterface
     class ntfy,Ollama external
     class Scheduler,CommandListener,NotificationSender,IPMonitor,RecurringGen daemon
-    class ScheduleAgent,OpenCodeServer,SystemPrompt agent
+    class AgentRunner,OpenCodeCLI,SchedulePrompt agent
     class MCPServer,MCPTools mcp
     class ScheduleManager,NLParser,Database,Config core
     class Tasks,Notifications,IPHistory data
@@ -115,58 +116,93 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-    participant User as 👤 User
-    participant Siri as 🎤 Siri
-    participant Shortcut as 📱 iOS Shortcut
-    participant ntfy as ☁️ ntfy.sh
-    participant Listener as 👂 Command Listener
-    participant Agent as 🤖 Schedule Agent
-    participant OpenCode as 🖥️ OpenCode Server
-    participant Ollama as 🦙 Ollama
-    participant MCP as 🔌 MCP Server
-    participant Core as ⚙️ Schedule Manager
-    participant DB as 💾 SQLite
+    participant User as User
+    participant Siri as Siri
+    participant Shortcut as iOS Shortcut
+    participant ntfy as ntfy.sh
+    participant Listener as Command Listener
+    participant Agent as agent.py
+    participant CLI as opencode CLI
+    participant Ollama as Ollama
+    participant MCP as MCP Server
+    participant Core as Schedule Manager
+    participant DB as SQLite
 
     User->>Siri: "Add meeting tomorrow at 3pm"
     Siri->>Shortcut: Transcribed text
-    Shortcut->>ntfy: POST /nick_cmd_a1ask10h<br/>{"message": "add: meeting tomorrow at 3pm"}
-    ntfy-->>Listener: SSE Event (JSON)
+    Shortcut->>ntfy: POST /commands_topic<br/>"meeting tomorrow at 3pm"
+    ntfy-->>Listener: SSE Event
     
     Note over Listener: Daemon receives command
     
     Listener->>Agent: process_command(message)
-    Agent->>OpenCode: POST /session/{id}/message<br/>{parts, model, agent, system}
-    OpenCode->>Ollama: AI inference request
-    Ollama-->>OpenCode: Tool call decision
+    Agent->>CLI: subprocess.run()<br/>opencode --agent=schedule run "..."
+    CLI->>Ollama: AI inference request
+    Ollama-->>CLI: Tool call: schedule_add
     
-    Note over OpenCode: AI decides to call schedule_add
+    Note over CLI: AI decides to call schedule_add
     
-    OpenCode->>MCP: schedule_add(description)
+    CLI->>MCP: schedule_add(description)
     MCP->>Core: add_task_natural(description)
     Core->>Core: Parse natural language
     Core->>DB: INSERT INTO tasks
     Core->>DB: INSERT INTO notifications
-    DB-->>Core: task_id, notification_id
+    DB-->>Core: task_id
     Core-->>MCP: {success: true, task: {...}}
-    MCP-->>OpenCode: Tool result
-    OpenCode-->>Agent: Response parts
+    MCP-->>CLI: Tool result
+    CLI-->>Agent: stdout with response
     Agent-->>Listener: {success: true, result: "Added: meeting..."}
     
     Note over Listener: Send confirmation
     
-    Listener->>ntfy: POST /nick_testing_12345<br/>{"message": "✓ Added: meeting tomorrow at 3pm"}
-    ntfy-->>User: 📱 Push notification
+    Listener->>ntfy: POST /notification_topic<br/>"Added: meeting tomorrow at 3pm"
+    ntfy-->>User: Push notification
 ```
+
+## CLI Mode Architecture
+
+The AI agent uses **CLI mode** - each command spawns a fresh `opencode` process:
+
+```mermaid
+flowchart LR
+    subgraph Daemon["Daemon Process"]
+        Listener["Command Listener"]
+    end
+    
+    subgraph Fresh["Fresh Process Per Command"]
+        CLI["opencode CLI"]
+        Model["AI Model"]
+        MCP["MCP Tools"]
+    end
+    
+    Listener -->|"subprocess.run()"| CLI
+    CLI --> Model
+    Model -->|"tool calls"| MCP
+    MCP -->|"results"| Model
+    Model -->|"response"| CLI
+    CLI -->|"stdout"| Listener
+```
+
+**Command format:**
+```bash
+opencode --agent=schedule --model=ollama/gpt-oss:120b-128k run "user's natural language"
+```
+
+**Benefits:**
+- No persistent server to manage
+- Fresh state for each command (no context pollution)
+- Process isolation (crashes don't affect daemon)
+- Simpler code (~130 lines vs ~450)
 
 ## Notification Delivery Flow
 
 ```mermaid
 sequenceDiagram
-    participant Scheduler as ⏰ APScheduler
-    participant Sender as 📤 Notification Sender
-    participant DB as 💾 SQLite
-    participant ntfy as ☁️ ntfy.sh
-    participant Phone as 📱 iPhone
+    participant Scheduler as APScheduler
+    participant Sender as Notification Sender
+    participant DB as SQLite
+    participant ntfy as ntfy.sh
+    participant Phone as iPhone
 
     loop Every 1 minute
         Scheduler->>Sender: check_pending_notifications()
@@ -189,19 +225,19 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    subgraph Input["📝 Task Creation"]
+    subgraph Input["Task Creation"]
         NewTask["New Task"]
         Priority{"Priority?"}
     end
 
-    subgraph NotifGen["🔔 Notification Generation"]
+    subgraph NotifGen["Notification Generation"]
         High["High Priority<br/>[15, 5, 0] minutes"]
         MedLow["Medium/Low Priority<br/>[0] minutes"]
     end
 
-    subgraph Output["📱 Notifications Sent"]
-        High3["3 Notifications:<br/>• 15 min before<br/>• 5 min before<br/>• At task time"]
-        Single["1 Notification:<br/>• At task time"]
+    subgraph Output["Notifications Sent"]
+        High3["3 Notifications:<br/>15 min before<br/>5 min before<br/>At task time"]
+        Single["1 Notification:<br/>At task time"]
     end
 
     NewTask --> Priority
@@ -224,6 +260,7 @@ flowchart BT
         ntfysh["ntfy.sh"]
         ollama["Ollama API"]
         sqlite["SQLite"]
+        opencode["opencode CLI"]
     end
 
     subgraph Python["Python Packages"]
@@ -248,13 +285,13 @@ flowchart BT
 
     %% External connections
     daemon --> ntfysh
+    agent --> opencode
     agent --> ollama
     database --> sqlite
 
     %% Package dependencies
     daemon --> apscheduler
     daemon --> requests
-    agent --> requests
     mcp_server --> mcp_pkg
     parser --> dateutil
     parser --> pytz
@@ -266,7 +303,6 @@ flowchart BT
     daemon --> command_listener
     daemon --> ip_monitor
     daemon --> notifications
-    agent --> core
     mcp_server --> core
     core --> parser
     core --> database
@@ -285,19 +321,17 @@ schedule-manager/
 │   ├── __init__.py
 │   ├── core.py                # ScheduleManager class
 │   ├── daemon.py              # Background daemon
-│   ├── agent.py               # AI agent integration
+│   ├── agent.py               # AI agent (CLI mode)
 │   ├── mcp_server.py          # MCP server for OpenCode
 │   ├── parser.py              # Natural language parsing
 │   ├── database.py            # Database operations
 │   ├── notifications.py       # ntfy.sh integration
 │   ├── command_listener.py    # Voice command listener
-│   ├── command_processor.py   # Simple command processor
+│   ├── command_processor.py   # Simple command processor (fallback)
 │   ├── ip_monitor.py          # IP change detection
 │   └── exceptions.py          # Custom exceptions
-├── docs/
-│   └── architecture.md        # This file
-└── tests/
-    └── ...
+├── docs/                      # Documentation
+└── tests/                     # Test suite
 ```
 
 ## Configuration Reference
@@ -313,7 +347,7 @@ ntfy:
 notifications:
   daily_summary_time: "07:00"
   reminder_minutes_before: [0]              # Default: single notification
-  reminder_minutes_before_high_priority: [15, 5, 0]  # High priority: 3 notifications
+  reminder_minutes_before_high_priority: [15, 5, 0]  # High priority: 3 reminders
 
 schedule:
   timezone: "America/Chicago"
@@ -323,10 +357,9 @@ database:
 
 agent:
   enabled: true
-  port: 5555
-  model: "ollama/gpt-oss:20b-128k"    # Must support tool calling
-  agent_name: "general"
-  command_timeout_seconds: 90          # AI processing timeout
+  model: "ollama/gpt-oss:120b-128k"    # Must support tool calling
+  agent_name: "schedule"                # Custom agent prompt
+  command_timeout_seconds: 90           # AI processing timeout
 ```
 
 ## Key Integrations
@@ -335,7 +368,7 @@ agent:
 |-----------|---------|------------|
 | **ntfy.sh** | Push notifications & voice commands | HTTPS REST API + SSE |
 | **Ollama** | AI inference for natural language | HTTP API (port 11434) |
-| **OpenCode** | MCP server host & AI orchestration | HTTP API (port 5555) |
+| **opencode** | AI agent with MCP tool access | CLI subprocess |
 | **SQLite** | Persistent storage | Local file |
 | **iOS Shortcuts** | Siri integration | ntfy.sh HTTP POST |
 

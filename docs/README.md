@@ -22,8 +22,8 @@ Learn how to use all the features.
 ### 💻 Developer Guides
 For advanced users and contributors.
 
-- **[AI Agent Mode](developer/ai-agent.md)** - OpenCode integration architecture
-- **[OpenCode HTTP API](developer/opencode-api.md)** - HTTP API implementation details
+- **[AI Agent Mode](developer/ai-agent.md)** - OpenCode CLI integration
+- **[Architecture](architecture.md)** - System diagrams and component overview
 - **[Database Schema](developer/database.md)** - Database structure and queries
 - **[Docker Setup](developer/docker.md)** - Containerized deployment
 
@@ -62,7 +62,7 @@ Solutions to common problems.
 
 **Advanced (Want to develop/integrate)**
 1. [AI Agent Mode](developer/ai-agent.md)
-2. [OpenCode HTTP API](developer/opencode-api.md)
+2. [Architecture](architecture.md)
 3. [Database Schema](developer/database.md)
 4. [Docker Setup](developer/docker.md)
 
