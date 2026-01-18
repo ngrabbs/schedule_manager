@@ -68,6 +68,7 @@ Be concise. Execute first, confirm second."""
         self.agent_name = self.agent_config.get('agent_name', 'schedule')
         self.startup_timeout = self.agent_config.get('startup_timeout_seconds', 30)
         self.health_check_timeout = self.agent_config.get('health_check_timeout_seconds', 5)
+        self.command_timeout = self.agent_config.get('command_timeout_seconds', 90)
         
         # Process state
         self.process: Optional[subprocess.Popen] = None
@@ -238,7 +239,7 @@ Be concise. Execute first, confirm second."""
                     'agent': self.agent_name,
                     'system': self.SYSTEM_PROMPT
                 },
-                timeout=30  # AI processing can take time
+                timeout=self.command_timeout  # Configurable timeout for AI processing
             )
             
             response.raise_for_status()
@@ -257,8 +258,8 @@ Be concise. Execute first, confirm second."""
             }
         
         except requests.exceptions.Timeout:
-            logger.error("Agent command timed out after 30 seconds")
-            raise AgentCommunicationError("Agent command timed out")
+            logger.error(f"Agent command timed out after {self.command_timeout} seconds")
+            raise AgentCommunicationError(f"Agent command timed out after {self.command_timeout}s")
         
         except requests.exceptions.RequestException as e:
             logger.error(f"Error communicating with agent: {e}")

@@ -33,3 +33,4 @@ agent:
   agent_name: "general"  # Use "general" agent for tool calling (not "schedule")
   startup_timeout_seconds: 30  # How long to wait for OpenCode to start
   health_check_timeout_seconds: 5  # Timeout for health checks
+  command_timeout_seconds: 90  # How long to wait for agent to process commands (default: 90s)
